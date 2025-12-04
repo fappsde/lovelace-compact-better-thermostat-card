@@ -2,13 +2,13 @@
  * Compact Better Thermostat Card
  * A compact, wide thermostat control card with integrated temperature/humidity graph
  *
- * @version 1.1.0
+ * @version 1.2.0
  * @author Claude
  * @license MIT
  * @dependency mini-graph-card (https://github.com/kalkih/mini-graph-card)
  */
 
-const CARD_VERSION = '1.1.0';
+const CARD_VERSION = '1.2.0';
 
 console.info(
   `%c COMPACT-BETTER-THERMOSTAT-CARD %c v${CARD_VERSION} `,
@@ -18,13 +18,18 @@ console.info(
 
 /**
  * Editor Element for Visual Configuration
- * Uses LitElement and ha-form for native HA look and feel
+ * Uses ha-form for native HA look and feel
+ *
+ * IMPORTANT: The form is created once and only updated on subsequent renders
+ * to prevent focus loss when typing in input fields.
  */
 class CompactBetterThermostatCardEditor extends HTMLElement {
   constructor() {
     super();
     this._config = {};
     this._hass = null;
+    this._form = null;
+    this._initialized = false;
     this.attachShadow({ mode: 'open' });
   }
 
@@ -34,7 +39,12 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
    */
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    // Only update the form's hass property, don't re-render
+    if (this._form) {
+      this._form.hass = hass;
+    } else if (!this._initialized) {
+      this._initialize();
+    }
   }
 
   /**
@@ -50,7 +60,22 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
    * @param {Object} config - Card configuration
    */
   setConfig(config) {
-    this._config = {
+    this._config = this._mergeConfig(config);
+    // Only update the form's data property, don't re-render
+    if (this._form) {
+      this._form.data = this._config;
+    } else if (this._hass && !this._initialized) {
+      this._initialize();
+    }
+  }
+
+  /**
+   * Merge config with defaults
+   * @param {Object} config - User config
+   * @returns {Object} Merged config
+   */
+  _mergeConfig(config) {
+    return {
       show_humidity: true,
       show_window: true,
       show_summer: true,
@@ -59,15 +84,6 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
       show_outdoor: false,
       show_last_changed: false,
       step: 0.5,
-      graph: {
-        hours_to_show: 24,
-        points_per_hour: 2,
-        line_width: 2,
-        show_fill: true,
-        temperature_color: 'var(--primary-color)',
-        humidity_color: 'var(--info-color)',
-        target_color: 'var(--accent-color)',
-      },
       ...config,
       graph: {
         hours_to_show: 24,
@@ -80,7 +96,6 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
         ...(config.graph || {}),
       },
     };
-    this._render();
   }
 
   /**
@@ -310,11 +325,19 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
    * @param {CustomEvent} ev - Value changed event
    */
   _valueChanged(ev) {
+    ev.stopPropagation();
+
     if (!this._config || !this._hass) {
       return;
     }
 
     const newConfig = ev.detail.value;
+
+    // Only dispatch if config actually changed
+    if (JSON.stringify(newConfig) === JSON.stringify(this._config)) {
+      return;
+    }
+
     this._config = newConfig;
 
     // Dispatch config-changed event to Home Assistant
@@ -327,27 +350,16 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
   }
 
   /**
-   * Render the editor
+   * Initialize the editor (called once)
    */
-  _render() {
-    if (!this._hass) {
+  _initialize() {
+    if (this._initialized || !this._hass) {
       return;
     }
 
-    // Create ha-form element
-    const form = document.createElement('ha-form');
-    form.hass = this._hass;
-    form.data = this._config;
-    form.schema = this._getSchema();
-    form.computeLabel = this._computeLabel;
+    this._initialized = true;
 
-    // Add event listener for value changes
-    form.addEventListener('value-changed', (ev) => this._valueChanged(ev));
-
-    // Clear and append
-    this.shadowRoot.innerHTML = '';
-
-    // Add some basic styling
+    // Add styling
     const style = document.createElement('style');
     style.textContent = `
       :host {
@@ -358,7 +370,27 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
       }
     `;
     this.shadowRoot.appendChild(style);
-    this.shadowRoot.appendChild(form);
+
+    // Create ha-form element (only once!)
+    this._form = document.createElement('ha-form');
+    this._form.hass = this._hass;
+    this._form.data = this._config;
+    this._form.schema = this._getSchema();
+    this._form.computeLabel = this._computeLabel;
+
+    // Add event listener for value changes
+    this._form.addEventListener('value-changed', (ev) => this._valueChanged(ev));
+
+    this.shadowRoot.appendChild(this._form);
+  }
+
+  /**
+   * Called when element is added to DOM
+   */
+  connectedCallback() {
+    if (this._hass && !this._initialized) {
+      this._initialize();
+    }
   }
 }
 
