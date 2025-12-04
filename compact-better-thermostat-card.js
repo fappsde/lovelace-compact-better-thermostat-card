@@ -2,19 +2,368 @@
  * Compact Better Thermostat Card
  * A compact, wide thermostat control card with integrated temperature/humidity graph
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @author Claude
  * @license MIT
  * @dependency mini-graph-card (https://github.com/kalkih/mini-graph-card)
  */
 
-const CARD_VERSION = '1.0.0';
+const CARD_VERSION = '1.1.0';
 
 console.info(
   `%c COMPACT-BETTER-THERMOSTAT-CARD %c v${CARD_VERSION} `,
   'color: white; background: #ff8c00; font-weight: bold;',
   'color: #ff8c00; background: white; font-weight: bold;'
 );
+
+/**
+ * Editor Element for Visual Configuration
+ * Uses LitElement and ha-form for native HA look and feel
+ */
+class CompactBetterThermostatCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this._config = {};
+    this._hass = null;
+    this.attachShadow({ mode: 'open' });
+  }
+
+  /**
+   * Set the hass object
+   * @param {Object} hass - Home Assistant object
+   */
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  /**
+   * Get the hass object
+   * @returns {Object} Home Assistant object
+   */
+  get hass() {
+    return this._hass;
+  }
+
+  /**
+   * Set the config from the card
+   * @param {Object} config - Card configuration
+   */
+  setConfig(config) {
+    this._config = {
+      show_humidity: true,
+      show_window: true,
+      show_summer: true,
+      show_heating: true,
+      show_battery: false,
+      show_outdoor: false,
+      show_last_changed: false,
+      step: 0.5,
+      graph: {
+        hours_to_show: 24,
+        points_per_hour: 2,
+        line_width: 2,
+        show_fill: true,
+        temperature_color: 'var(--primary-color)',
+        humidity_color: 'var(--info-color)',
+        target_color: 'var(--accent-color)',
+      },
+      ...config,
+      graph: {
+        hours_to_show: 24,
+        points_per_hour: 2,
+        line_width: 2,
+        show_fill: true,
+        temperature_color: 'var(--primary-color)',
+        humidity_color: 'var(--info-color)',
+        target_color: 'var(--accent-color)',
+        ...(config.graph || {}),
+      },
+    };
+    this._render();
+  }
+
+  /**
+   * Get the form schema for ha-form
+   * @returns {Array} Schema array
+   */
+  _getSchema() {
+    return [
+      // Main Configuration
+      {
+        name: 'entity',
+        required: true,
+        selector: {
+          entity: {
+            domain: 'climate',
+          },
+        },
+      },
+      {
+        name: 'name',
+        selector: {
+          text: {},
+        },
+      },
+      // Sensor Grid
+      {
+        type: 'grid',
+        name: '',
+        schema: [
+          {
+            name: 'temperature_sensor',
+            selector: {
+              entity: {
+                domain: 'sensor',
+                device_class: 'temperature',
+              },
+            },
+          },
+          {
+            name: 'humidity_sensor',
+            selector: {
+              entity: {
+                domain: 'sensor',
+                device_class: 'humidity',
+              },
+            },
+          },
+        ],
+      },
+      // Temperature Step
+      {
+        name: 'step',
+        selector: {
+          number: {
+            min: 0.1,
+            max: 1,
+            step: 0.1,
+            mode: 'box',
+          },
+        },
+      },
+      // Display Options
+      {
+        type: 'expandable',
+        name: '',
+        title: 'Display Options',
+        icon: 'mdi:eye',
+        schema: [
+          {
+            name: 'show_humidity',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'show_window',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'show_summer',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'show_heating',
+            selector: { boolean: {} },
+          },
+        ],
+      },
+      // Additional Information
+      {
+        type: 'expandable',
+        name: '',
+        title: 'Additional Information',
+        icon: 'mdi:information-outline',
+        schema: [
+          {
+            name: 'show_battery',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'battery_entity',
+            selector: {
+              entity: {
+                domain: 'sensor',
+                device_class: 'battery',
+              },
+            },
+          },
+          {
+            name: 'show_outdoor',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'outdoor_entity',
+            selector: {
+              entity: {
+                domain: 'sensor',
+                device_class: 'temperature',
+              },
+            },
+          },
+          {
+            name: 'show_last_changed',
+            selector: { boolean: {} },
+          },
+        ],
+      },
+      // Graph Settings
+      {
+        type: 'expandable',
+        name: 'graph',
+        title: 'Graph Settings',
+        icon: 'mdi:chart-line',
+        schema: [
+          {
+            name: 'hours_to_show',
+            selector: {
+              number: {
+                min: 1,
+                max: 168,
+                step: 1,
+                mode: 'box',
+                unit_of_measurement: 'h',
+              },
+            },
+          },
+          {
+            name: 'points_per_hour',
+            selector: {
+              number: {
+                min: 1,
+                max: 12,
+                step: 1,
+                mode: 'box',
+              },
+            },
+          },
+          {
+            name: 'line_width',
+            selector: {
+              number: {
+                min: 1,
+                max: 5,
+                step: 0.5,
+                mode: 'slider',
+              },
+            },
+          },
+          {
+            name: 'show_fill',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'temperature_color',
+            selector: { text: {} },
+          },
+          {
+            name: 'humidity_color',
+            selector: { text: {} },
+          },
+          {
+            name: 'target_color',
+            selector: { text: {} },
+          },
+        ],
+      },
+    ];
+  }
+
+  /**
+   * Compute label for form fields
+   * @param {Object} schema - Schema item
+   * @returns {string} Label text
+   */
+  _computeLabel(schema) {
+    const labels = {
+      // Main
+      entity: 'Climate Entity',
+      name: 'Card Name',
+      temperature_sensor: 'Temperature Sensor',
+      humidity_sensor: 'Humidity Sensor',
+      step: 'Temperature Step',
+      // Display Options
+      show_humidity: 'Show Humidity',
+      show_window: 'Show Window Status',
+      show_summer: 'Show Summer Mode',
+      show_heating: 'Show Heating Indicator',
+      // Additional Info
+      show_battery: 'Show Battery',
+      battery_entity: 'Battery Sensor',
+      show_outdoor: 'Show Outdoor Temperature',
+      outdoor_entity: 'Outdoor Sensor',
+      show_last_changed: 'Show Last Changed',
+      // Graph
+      hours_to_show: 'Hours to Show',
+      points_per_hour: 'Points per Hour',
+      line_width: 'Line Width',
+      show_fill: 'Show Graph Fill',
+      temperature_color: 'Temperature Color',
+      humidity_color: 'Humidity Color',
+      target_color: 'Target Color',
+    };
+
+    return labels[schema.name] || schema.name;
+  }
+
+  /**
+   * Handle value changes from ha-form
+   * @param {CustomEvent} ev - Value changed event
+   */
+  _valueChanged(ev) {
+    if (!this._config || !this._hass) {
+      return;
+    }
+
+    const newConfig = ev.detail.value;
+    this._config = newConfig;
+
+    // Dispatch config-changed event to Home Assistant
+    const event = new CustomEvent('config-changed', {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  /**
+   * Render the editor
+   */
+  _render() {
+    if (!this._hass) {
+      return;
+    }
+
+    // Create ha-form element
+    const form = document.createElement('ha-form');
+    form.hass = this._hass;
+    form.data = this._config;
+    form.schema = this._getSchema();
+    form.computeLabel = this._computeLabel;
+
+    // Add event listener for value changes
+    form.addEventListener('value-changed', (ev) => this._valueChanged(ev));
+
+    // Clear and append
+    this.shadowRoot.innerHTML = '';
+
+    // Add some basic styling
+    const style = document.createElement('style');
+    style.textContent = `
+      :host {
+        display: block;
+      }
+      ha-form {
+        display: block;
+      }
+    `;
+    this.shadowRoot.appendChild(style);
+    this.shadowRoot.appendChild(form);
+  }
+}
+
+// Register the editor element
+customElements.define('compact-better-thermostat-card-editor', CompactBetterThermostatCardEditor);
 
 /**
  * HVAC Mode configurations with icons and colors
@@ -308,103 +657,37 @@ const CARD_STYLES = `
  */
 class CompactBetterThermostatCard extends HTMLElement {
   /**
-   * Define config form schema for visual editor
-   * @returns {Object} Form schema
+   * Return the editor element for visual configuration
+   * @returns {HTMLElement} Editor element
    */
-  static getConfigForm() {
-    return {
-      schema: [
-        {
-          name: "entity",
-          required: true,
-          selector: { entity: { domain: "climate" } }
-        },
-        {
-          name: "name",
-          selector: { text: {} }
-        },
-        {
-          type: "grid",
-          schema: [
-            { name: "temperature_sensor", selector: { entity: { domain: "sensor" } } },
-            { name: "humidity_sensor", selector: { entity: { domain: "sensor" } } },
-          ]
-        },
-        {
-          type: "expandable",
-          title: "Display Options",
-          schema: [
-            { name: "show_humidity", selector: { boolean: {} } },
-            { name: "show_window", selector: { boolean: {} } },
-            { name: "show_summer", selector: { boolean: {} } },
-            { name: "show_heating", selector: { boolean: {} } },
-          ]
-        },
-        {
-          type: "expandable",
-          title: "Additional Information",
-          schema: [
-            { name: "show_battery", selector: { boolean: {} } },
-            { name: "battery_entity", selector: { entity: { domain: "sensor" } } },
-            { name: "show_outdoor", selector: { boolean: {} } },
-            { name: "outdoor_entity", selector: { entity: { domain: "sensor" } } },
-            { name: "show_last_changed", selector: { boolean: {} } },
-          ]
-        },
-        {
-          type: "expandable",
-          title: "Graph Settings",
-          schema: [
-            { name: "graph.hours_to_show", selector: { number: { min: 1, max: 168, step: 1 } } },
-            { name: "graph.points_per_hour", selector: { number: { min: 1, max: 12, step: 1 } } },
-            { name: "graph.line_width", selector: { number: { min: 1, max: 5, step: 0.5 } } },
-            { name: "graph.show_fill", selector: { boolean: {} } },
-            { name: "graph.temperature_color", selector: { text: {} } },
-            { name: "graph.humidity_color", selector: { text: {} } },
-          ]
-        },
-        {
-          name: "step",
-          selector: { number: { min: 0.1, max: 1, step: 0.1, mode: "box" } }
-        },
-      ],
-
-      computeLabel: (schema) => {
-        const labels = {
-          entity: "Climate Entity",
-          name: "Room Name",
-          temperature_sensor: "Temperature Sensor",
-          humidity_sensor: "Humidity Sensor",
-          show_humidity: "Show Humidity",
-          show_window: "Show Window Status",
-          show_summer: "Show Summer Mode",
-          show_heating: "Show Heating Indicator",
-          show_battery: "Show Battery",
-          battery_entity: "Battery Sensor",
-          show_outdoor: "Show Outdoor Temperature",
-          outdoor_entity: "Outdoor Sensor",
-          show_last_changed: "Show Last Changed",
-          "graph.hours_to_show": "Hours to Show",
-          "graph.points_per_hour": "Points per Hour",
-          "graph.line_width": "Line Width",
-          "graph.show_fill": "Show Fill",
-          "graph.temperature_color": "Temperature Color",
-          "graph.humidity_color": "Humidity Color",
-          step: "Temperature Step",
-        };
-        return labels[schema.name] || schema.name;
-      },
-    };
+  static getConfigElement() {
+    return document.createElement('compact-better-thermostat-card-editor');
   }
 
   /**
    * Return stub config for card picker
-   * @returns {Object} Stub config
+   * @param {Object} hass - Home Assistant object
+   * @returns {Object} Stub config with sensible defaults
    */
-  static getStubConfig() {
+  static getStubConfig(hass) {
+    // Find first climate entity
+    const climateEntities = Object.keys(hass?.states || {}).filter(
+      (entityId) => entityId.startsWith('climate.')
+    );
+
     return {
-      entity: "",
+      entity: climateEntities[0] || '',
       show_humidity: true,
+      show_window: true,
+      show_summer: true,
+      show_heating: true,
+      step: 0.5,
+      graph: {
+        hours_to_show: 24,
+        points_per_hour: 2,
+        line_width: 2,
+        show_fill: true,
+      },
     };
   }
 
