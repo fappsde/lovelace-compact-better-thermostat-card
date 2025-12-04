@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2024-12-04
+
+### Fixed
+- **Critical**: Fixed visual editor focus loss issue completely
+  - Root cause: `setConfig()` was updating `form.data` after initialization, causing ha-form to re-render
+  - Solution: Never update `form.data` after initial creation - ha-form manages its own internal state
+  - This follows the same pattern used by [Mushroom cards](https://github.com/piitaya/lovelace-mushroom)
+
+### Changed
+- Removed `form.data` update from `setConfig()` to prevent feedback loop
+- Added detailed documentation explaining the editor lifecycle
+
 ## [1.2.0] - 2024-12-04
 
 ### Fixed

@@ -2,13 +2,13 @@
  * Compact Better Thermostat Card
  * A compact, wide thermostat control card with integrated temperature/humidity graph
  *
- * @version 1.2.0
+ * @version 1.3.0
  * @author Claude
  * @license MIT
  * @dependency mini-graph-card (https://github.com/kalkih/mini-graph-card)
  */
 
-const CARD_VERSION = '1.2.0';
+const CARD_VERSION = '1.3.0';
 
 console.info(
   `%c COMPACT-BETTER-THERMOSTAT-CARD %c v${CARD_VERSION} `,
@@ -20,8 +20,12 @@ console.info(
  * Editor Element for Visual Configuration
  * Uses ha-form for native HA look and feel
  *
- * IMPORTANT: The form is created once and only updated on subsequent renders
- * to prevent focus loss when typing in input fields.
+ * IMPORTANT: After initialization, we NEVER update form.data because:
+ * 1. ha-form manages its own internal state
+ * 2. Updating form.data causes re-render and focus loss
+ * 3. When user changes a value, ha-form fires value-changed
+ * 4. We dispatch config-changed, HA calls setConfig back
+ * 5. If we update form.data here, it creates a feedback loop
  */
 class CompactBetterThermostatCardEditor extends HTMLElement {
   constructor() {
@@ -39,7 +43,7 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
    */
   set hass(hass) {
     this._hass = hass;
-    // Only update the form's hass property, don't re-render
+    // Only update the form's hass property
     if (this._form) {
       this._form.hass = hass;
     } else if (!this._initialized) {
@@ -56,15 +60,17 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
   }
 
   /**
-   * Set the config from the card
+   * Set the config from the card (called by HA)
    * @param {Object} config - Card configuration
    */
   setConfig(config) {
+    // Store config for reference
     this._config = this._mergeConfig(config);
-    // Only update the form's data property, don't re-render
-    if (this._form) {
-      this._form.data = this._config;
-    } else if (this._hass && !this._initialized) {
+
+    // IMPORTANT: Do NOT update this._form.data after initialization!
+    // The form manages its own state. Updating it causes re-render and focus loss.
+    // Only initialize if not yet done.
+    if (!this._initialized && this._hass) {
       this._initialize();
     }
   }
