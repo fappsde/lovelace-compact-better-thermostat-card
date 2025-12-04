@@ -2,13 +2,13 @@
  * Compact Better Thermostat Card
  * A compact, wide thermostat control card with integrated temperature/humidity graph
  *
- * @version 1.3.0
+ * @version 1.4.0
  * @author Claude
  * @license MIT
  * @dependency mini-graph-card (https://github.com/kalkih/mini-graph-card)
  */
 
-const CARD_VERSION = '1.3.0';
+const CARD_VERSION = '1.4.0';
 
 console.info(
   `%c COMPACT-BETTER-THERMOSTAT-CARD %c v${CARD_VERSION} `,
@@ -516,35 +516,54 @@ const CARD_STYLES = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
+    padding: 16px;
     flex: 1;
     position: relative;
     z-index: 5;
     cursor: pointer;
+    min-height: 100px;
   }
 
-  /* Info Section */
+  /* Backdrop Panel Base */
+  .backdrop-panel {
+    background: rgba(var(--rgb-card-background-color, 255, 255, 255), 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Fallback for browsers without backdrop-filter */
+  @supports not (backdrop-filter: blur(8px)) {
+    .backdrop-panel {
+      background: rgba(var(--rgb-card-background-color, 255, 255, 255), 0.95);
+    }
+  }
+
+  /* Info Section (Temperature Block) */
   .info-section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 12px 16px;
     min-width: 100px;
   }
 
-  .temp-humidity-row {
+  .temp-row {
     display: flex;
     align-items: baseline;
     gap: 4px;
   }
 
   .current-temp {
-    font-size: 1.8rem;
+    font-size: 2rem;
     font-weight: 500;
     line-height: 1;
   }
 
   .trend-arrow {
-    font-size: 1rem;
+    font-size: 1.2rem;
     margin-left: 4px;
   }
 
@@ -552,13 +571,20 @@ const CARD_STYLES = `
   .trend-arrow.down { color: var(--info-color, #2196f3); }
   .trend-arrow.stable { color: var(--secondary-text-color); }
 
+  .humidity-row {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    margin-top: 2px;
+    padding-left: 50%;
+  }
+
   .humidity {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--secondary-text-color);
-    margin-left: 12px;
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
   }
 
   .humidity ha-icon {
@@ -568,26 +594,30 @@ const CARD_STYLES = `
   .room-name {
     font-size: 0.85rem;
     color: var(--secondary-text-color);
+    margin-top: 4px;
+  }
+
+  /* Controls Group (Mode + Target) */
+  .controls-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
 
   /* Mode Buttons */
   .mode-section {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
     align-items: center;
-  }
-
-  .mode-row {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
     justify-content: center;
+    padding: 6px 10px;
+    gap: 4px;
   }
 
   .mode-btn {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border: none;
     border-radius: 8px;
     background: transparent;
@@ -619,10 +649,9 @@ const CARD_STYLES = `
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 4px;
-    background: rgba(var(--rgb-primary-text-color), 0.05);
-    border-radius: 18px;
-    padding: 6px;
+    padding: 8px 12px;
   }
 
   .target-btn {
@@ -632,7 +661,7 @@ const CARD_STYLES = `
     border-radius: 50%;
     background: var(--card-background-color);
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -643,6 +672,7 @@ const CARD_STYLES = `
   .target-btn:hover {
     background: var(--primary-color);
     color: white;
+    transform: scale(1.05);
   }
 
   .target-btn:active {
@@ -654,9 +684,31 @@ const CARD_STYLES = `
   }
 
   .target-temp {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     font-weight: 600;
     padding: 4px 0;
+  }
+
+  /* Responsive Behavior */
+  @container (max-width: 300px) {
+    .mode-section {
+      display: none;
+    }
+
+    .current-temp {
+      font-size: 1.5rem;
+    }
+  }
+
+  @container (min-width: 300px) and (max-width: 400px) {
+    .mode-section {
+      padding: 4px 6px;
+    }
+
+    .mode-btn {
+      width: 28px;
+      height: 28px;
+    }
   }
 
   /* Info Bar */
@@ -1034,13 +1086,19 @@ class CompactBetterThermostatCard extends HTMLElement {
     const infoSection = this._createInfoSection(entity);
     mainContent.appendChild(infoSection);
 
-    // Mode buttons (center)
-    const modeSection = this._createModeSection(entity);
-    mainContent.appendChild(modeSection);
+    // Controls group (mode + target controls on right)
+    const controlsGroup = document.createElement('div');
+    controlsGroup.className = 'controls-group';
 
-    // Target controls (right)
+    // Mode buttons
+    const modeSection = this._createModeSection(entity);
+    controlsGroup.appendChild(modeSection);
+
+    // Target controls
     const targetControls = this._createTargetControls(entity);
-    mainContent.appendChild(targetControls);
+    controlsGroup.appendChild(targetControls);
+
+    mainContent.appendChild(controlsGroup);
   }
 
   /**
@@ -1050,18 +1108,18 @@ class CompactBetterThermostatCard extends HTMLElement {
    */
   _createInfoSection(entity) {
     const section = document.createElement('div');
-    section.className = 'info-section';
+    section.className = 'info-section backdrop-panel';
 
-    // Temperature and humidity row
-    const tempHumidityRow = document.createElement('div');
-    tempHumidityRow.className = 'temp-humidity-row';
+    // Temperature row (temp + trend)
+    const tempRow = document.createElement('div');
+    tempRow.className = 'temp-row';
 
     // Current temperature
     const currentTemp = this._getCurrentTemperature(entity);
     const tempSpan = document.createElement('span');
     tempSpan.className = 'current-temp';
     tempSpan.textContent = currentTemp !== null ? `${currentTemp.toFixed(1)}°` : '--°';
-    tempHumidityRow.appendChild(tempSpan);
+    tempRow.appendChild(tempSpan);
 
     // Trend arrow
     const trend = this._calculateTrend();
@@ -1069,13 +1127,18 @@ class CompactBetterThermostatCard extends HTMLElement {
       const trendSpan = document.createElement('span');
       trendSpan.className = `trend-arrow ${trend.class}`;
       trendSpan.textContent = trend.arrow;
-      tempHumidityRow.appendChild(trendSpan);
+      tempRow.appendChild(trendSpan);
     }
 
-    // Humidity
+    section.appendChild(tempRow);
+
+    // Humidity row (below trend arrow)
     if (this._config.show_humidity !== false) {
       const humidity = this._getCurrentHumidity(entity);
       if (humidity !== null) {
+        const humidityRow = document.createElement('div');
+        humidityRow.className = 'humidity-row';
+
         const humiditySpan = document.createElement('span');
         humiditySpan.className = 'humidity';
 
@@ -1087,11 +1150,10 @@ class CompactBetterThermostatCard extends HTMLElement {
 
         humiditySpan.appendChild(humidityText);
         humiditySpan.appendChild(humidityIcon);
-        tempHumidityRow.appendChild(humiditySpan);
+        humidityRow.appendChild(humiditySpan);
+        section.appendChild(humidityRow);
       }
     }
-
-    section.appendChild(tempHumidityRow);
 
     // Room name
     const roomName = document.createElement('div');
@@ -1149,49 +1211,35 @@ class CompactBetterThermostatCard extends HTMLElement {
    */
   _createModeSection(entity) {
     const section = document.createElement('div');
-    section.className = 'mode-section';
+    section.className = 'mode-section backdrop-panel';
 
-    // HVAC modes
+    // HVAC modes - all in one horizontal row
     const hvacModes = entity.attributes.hvac_modes || [];
-    if (hvacModes.length > 0) {
-      const hvacRow = document.createElement('div');
-      hvacRow.className = 'mode-row';
-
-      hvacModes.forEach(mode => {
-        const modeConfig = HVAC_MODES[mode];
-        if (modeConfig) {
-          const btn = this._createModeButton(
-            modeConfig.icon,
-            mode === entity.state,
-            modeConfig.color,
-            () => this._setHvacMode(mode)
-          );
-          hvacRow.appendChild(btn);
-        }
-      });
-
-      section.appendChild(hvacRow);
-    }
-
-    // Preset modes
-    const presetModes = (entity.attributes.preset_modes || []).filter(p => p !== 'none');
-    if (presetModes.length > 0) {
-      const presetRow = document.createElement('div');
-      presetRow.className = 'mode-row';
-
-      presetModes.forEach(preset => {
-        const presetConfig = PRESET_MODES[preset] || { icon: 'mdi:thermostat', color: 'var(--primary-color)' };
+    hvacModes.forEach(mode => {
+      const modeConfig = HVAC_MODES[mode];
+      if (modeConfig) {
         const btn = this._createModeButton(
-          presetConfig.icon,
-          preset === entity.attributes.preset_mode,
-          presetConfig.color,
-          () => this._setPresetMode(preset)
+          modeConfig.icon,
+          mode === entity.state,
+          modeConfig.color,
+          () => this._setHvacMode(mode)
         );
-        presetRow.appendChild(btn);
-      });
+        section.appendChild(btn);
+      }
+    });
 
-      section.appendChild(presetRow);
-    }
+    // Preset modes - continue in the same row
+    const presetModes = (entity.attributes.preset_modes || []).filter(p => p !== 'none');
+    presetModes.forEach(preset => {
+      const presetConfig = PRESET_MODES[preset] || { icon: 'mdi:thermostat', color: 'var(--primary-color)' };
+      const btn = this._createModeButton(
+        presetConfig.icon,
+        preset === entity.attributes.preset_mode,
+        presetConfig.color,
+        () => this._setPresetMode(preset)
+      );
+      section.appendChild(btn);
+    });
 
     return section;
   }
@@ -1231,7 +1279,7 @@ class CompactBetterThermostatCard extends HTMLElement {
    */
   _createTargetControls(entity) {
     const controls = document.createElement('div');
-    controls.className = 'target-controls';
+    controls.className = 'target-controls backdrop-panel';
 
     // Plus button
     const plusBtn = document.createElement('button');
