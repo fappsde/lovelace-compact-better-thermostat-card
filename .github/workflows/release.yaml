@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  release:
+    name: Upload release assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: compact-better-thermostat-card.js
