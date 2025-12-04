@@ -1439,5 +1439,5 @@ window.customCards.push({
   name: 'Compact Better Thermostat Card',
   description: 'A compact thermostat card with integrated temperature/humidity graph',
   preview: true,
-  documentationURL: 'https://github.com/fappsde/Hass-compact-better-thermostat-catd',
+  documentationURL: 'https://github.com/fappsde/lovelace-compact-better-thermostat-card',
 });

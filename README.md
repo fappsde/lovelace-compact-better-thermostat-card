@@ -1,12 +1,12 @@
 # Compact Better Thermostat Card
 
-[![GitHub Release](https://img.shields.io/github/v/release/fappsde/Hass-compact-better-thermostat-card?style=flat-square)](https://github.com/fappsde/Hass-compact-better-thermostat-card/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/fappsde/lovelace-compact-better-thermostat-card?style=flat-square)](https://github.com/fappsde/lovelace-compact-better-thermostat-card/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://hacs.xyz/)
-[![License](https://img.shields.io/github/license/fappsde/Hass-compact-better-thermostat-card?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/github/license/fappsde/lovelace-compact-better-thermostat-card?style=flat-square)](LICENSE)
 
 A compact, wide thermostat control card for Home Assistant with an integrated temperature/humidity graph in the background. Designed to work seamlessly with [Better Thermostat](https://github.com/KartoffelToby/better_thermostat) but compatible with any climate entity.
 
-![Card Preview](docs/preview.png)
+<!-- TODO: Add preview image at docs/preview.png -->
 
 ## Features
 
