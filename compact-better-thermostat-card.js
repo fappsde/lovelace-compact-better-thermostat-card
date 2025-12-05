@@ -499,6 +499,11 @@ const CARD_STYLES = `
     color: var(--warning-color, #ffc107);
   }
 
+  .status-icon.enabled {
+    color: var(--secondary-text-color);
+    opacity: 0.6;
+  }
+
   .status-icon.heating {
     color: var(--state-climate-heat-color, #ff8c00);
     animation: pulse 1.5s ease-in-out infinite;
@@ -516,6 +521,11 @@ const CARD_STYLES = `
     opacity: 0.7;
     pointer-events: none;
     z-index: 0;
+  }
+
+  /* Graph Container with Info Bar */
+  .graph-container.with-info-bar {
+    bottom: 36px;
   }
 
   .graph-container mini-graph-card {
@@ -759,8 +769,17 @@ const CARD_STYLES = `
     font-size: 0.75rem;
     color: var(--secondary-text-color);
     border-top: 1px solid var(--divider-color);
-    position: relative;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     z-index: 5;
+    background: var(--card-background-color);
+    pointer-events: none;
+  }
+
+  .info-bar > * {
+    pointer-events: auto;
   }
 
   .info-bar-item {
@@ -1075,10 +1094,17 @@ class CompactBetterThermostatCard extends HTMLElement {
     statusBar.innerHTML = '';
     const attrs = entity.attributes;
 
-    // Window open indicator
-    if (this._config.show_window !== false &&
-        (attrs.window_open === true || attrs.window === true)) {
-      statusBar.appendChild(this._createStatusIcon('mdi:window-open-variant', 'warning'));
+    // Window indicator
+    if (this._config.show_window !== false) {
+      // Show warning icon if window is open
+      if (attrs.window_open === true || attrs.window === true) {
+        statusBar.appendChild(this._createStatusIcon('mdi:window-open-variant', 'warning'));
+      }
+      // Show grey icon if window detection is enabled but window is closed
+      else if (attrs.window_detection === 'on' || attrs.window_detection === true ||
+               attrs.is_window_detection_on === true) {
+        statusBar.appendChild(this._createStatusIcon('mdi:window-closed-variant', 'enabled'));
+      }
     }
 
     // Summer mode indicator
@@ -1090,7 +1116,7 @@ class CompactBetterThermostatCard extends HTMLElement {
     // Heating indicator
     if (this._config.show_heating !== false &&
         (attrs.hvac_action === 'heating' || attrs.call_for_heat === true)) {
-      statusBar.appendChild(this._createStatusIcon('mdi:fire', 'heating'));
+      statusBar.appendChild(this._createStatusIcon('mdi:waves', 'heating'));
     }
   }
 
@@ -1357,6 +1383,7 @@ class CompactBetterThermostatCard extends HTMLElement {
    */
   _updateInfoBar(entity) {
     const infoBar = this.shadowRoot.getElementById('info-bar');
+    const graphContainer = this.shadowRoot.getElementById('graph-container');
     if (!infoBar) return;
 
     const items = [];
@@ -1390,8 +1417,18 @@ class CompactBetterThermostatCard extends HTMLElement {
         const span = `<span class="info-bar-item">${item}</span>`;
         return i < items.length - 1 ? `${span}<span class="separator">|</span>` : span;
       }).join('');
+
+      // Add class to graph container to adjust its bottom margin
+      if (graphContainer) {
+        graphContainer.classList.add('with-info-bar');
+      }
     } else {
       infoBar.style.display = 'none';
+
+      // Remove class from graph container
+      if (graphContainer) {
+        graphContainer.classList.remove('with-info-bar');
+      }
     }
   }
 
