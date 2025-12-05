@@ -523,11 +523,6 @@ const CARD_STYLES = `
     z-index: 0;
   }
 
-  /* Graph Container with Info Bar */
-  .graph-container.with-info-bar {
-    bottom: 24px;
-  }
-
   .graph-container mini-graph-card {
     height: 100%;
     --ha-card-background: transparent;
@@ -768,7 +763,6 @@ const CARD_STYLES = `
     padding: 4px 8px;
     font-size: 0.75rem;
     color: var(--secondary-text-color);
-    border-top: 1px solid rgba(var(--rgb-divider-color, 127, 127, 127), 0.3);
     position: absolute;
     bottom: 0;
     left: 0;
@@ -1394,7 +1388,6 @@ class CompactBetterThermostatCard extends HTMLElement {
    */
   _updateInfoBar(entity) {
     const infoBar = this.shadowRoot.getElementById('info-bar');
-    const graphContainer = this.shadowRoot.getElementById('graph-container');
     if (!infoBar) return;
 
     const items = [];
@@ -1428,18 +1421,8 @@ class CompactBetterThermostatCard extends HTMLElement {
         const span = `<span class="info-bar-item">${item}</span>`;
         return i < items.length - 1 ? `${span}<span class="separator">|</span>` : span;
       }).join('');
-
-      // Add class to graph container to adjust its bottom margin
-      if (graphContainer) {
-        graphContainer.classList.add('with-info-bar');
-      }
     } else {
       infoBar.style.display = 'none';
-
-      // Remove class from graph container
-      if (graphContainer) {
-        graphContainer.classList.remove('with-info-bar');
-      }
     }
   }
 
