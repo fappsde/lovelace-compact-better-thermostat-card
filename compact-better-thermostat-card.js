@@ -46,7 +46,8 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
     // Only update the form's hass property
     if (this._form) {
       this._form.hass = hass;
-    } else if (!this._initialized) {
+    } else if (!this._initialized && this._config.entity) {
+      // Only initialize if config is ready (setConfig was called with valid config)
       this._initialize();
     }
   }
@@ -376,7 +377,8 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
    * Initialize the editor (called once)
    */
   _initialize() {
-    if (this._initialized || !this._hass) {
+    // Only initialize when both hass and valid config are available
+    if (this._initialized || !this._hass || !this._config.entity) {
       return;
     }
 
@@ -411,7 +413,7 @@ class CompactBetterThermostatCardEditor extends HTMLElement {
    * Called when element is added to DOM
    */
   connectedCallback() {
-    if (this._hass && !this._initialized) {
+    if (this._hass && this._config.entity && !this._initialized) {
       this._initialize();
     }
   }
