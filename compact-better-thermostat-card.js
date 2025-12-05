@@ -468,8 +468,16 @@ const CARD_STYLES = `
     justify-content: center;
     gap: 8px;
     padding: 8px;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 10;
+    pointer-events: none;
+  }
+
+  .status-bar > * {
+    pointer-events: auto;
   }
 
   .status-icon {
@@ -543,44 +551,55 @@ const CARD_STYLES = `
 
   /* Backdrop Panel Base */
   .backdrop-panel {
-    background: rgba(var(--rgb-card-background-color, 255, 255, 255), 0.85);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: color-mix(in srgb, var(--card-background-color) 85%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Fallback for browsers without color-mix */
+  @supports not (background: color-mix(in srgb, var(--card-background-color) 85%, transparent)) {
+    .backdrop-panel {
+      background: var(--card-background-color);
+      opacity: 0.85;
+    }
   }
 
   /* Fallback for browsers without backdrop-filter */
-  @supports not (backdrop-filter: blur(8px)) {
+  @supports not (backdrop-filter: blur(10px)) {
     .backdrop-panel {
-      background: rgba(var(--rgb-card-background-color, 255, 255, 255), 0.95);
+      background: var(--card-background-color);
+      opacity: 0.95;
     }
   }
 
   /* Info Section (Temperature Block) */
   .info-section {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 12px 16px;
-    min-width: 100px;
-  }
-
-  .temp-row {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto auto;
+    gap: 0;
+    align-items: start;
+    justify-content: start;
+    align-self: center;
   }
 
   .current-temp {
-    font-size: 2rem;
+    grid-column: 1;
+    grid-row: 1 / 3;
+    font-size: 2.5rem;
     font-weight: 500;
     line-height: 1;
+    align-self: center;
   }
 
   .trend-arrow {
-    font-size: 1.2rem;
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 1rem;
+    align-self: start;
+    justify-self: start;
     margin-left: 4px;
   }
 
@@ -588,27 +607,26 @@ const CARD_STYLES = `
   .trend-arrow.down { color: var(--info-color, #2196f3); }
   .trend-arrow.stable { color: var(--secondary-text-color); }
 
-  .humidity-row {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-    margin-top: 2px;
-    padding-left: 50%;
-  }
-
   .humidity {
-    font-size: 0.9rem;
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.85rem;
     color: var(--secondary-text-color);
     display: flex;
     align-items: center;
     gap: 4px;
+    align-self: end;
+    justify-self: start;
+    margin-left: 4px;
   }
 
   .humidity ha-icon {
-    --mdc-icon-size: 16px;
+    --mdc-icon-size: 14px;
   }
 
   .room-name {
+    grid-column: 1 / 3;
+    grid-row: 3;
     font-size: 0.85rem;
     color: var(--secondary-text-color);
     margin-top: 4px;
@@ -713,7 +731,7 @@ const CARD_STYLES = `
     }
 
     .current-temp {
-      font-size: 1.5rem;
+      font-size: 2rem;
     }
   }
 
@@ -725,6 +743,10 @@ const CARD_STYLES = `
     .mode-btn {
       width: 28px;
       height: 28px;
+    }
+
+    .current-temp {
+      font-size: 2.2rem;
     }
   }
 
@@ -1125,37 +1147,28 @@ class CompactBetterThermostatCard extends HTMLElement {
    */
   _createInfoSection(entity) {
     const section = document.createElement('div');
-    section.className = 'info-section backdrop-panel';
+    section.className = 'info-section';
 
-    // Temperature row (temp + trend)
-    const tempRow = document.createElement('div');
-    tempRow.className = 'temp-row';
-
-    // Current temperature
+    // Current temperature (grid-column: 1, grid-row: 1/3)
     const currentTemp = this._getCurrentTemperature(entity);
     const tempSpan = document.createElement('span');
     tempSpan.className = 'current-temp';
     tempSpan.textContent = currentTemp !== null ? `${currentTemp.toFixed(1)}°` : '--°';
-    tempRow.appendChild(tempSpan);
+    section.appendChild(tempSpan);
 
-    // Trend arrow
+    // Trend arrow (grid-column: 2, grid-row: 1)
     const trend = this._calculateTrend();
     if (trend) {
       const trendSpan = document.createElement('span');
       trendSpan.className = `trend-arrow ${trend.class}`;
       trendSpan.textContent = trend.arrow;
-      tempRow.appendChild(trendSpan);
+      section.appendChild(trendSpan);
     }
 
-    section.appendChild(tempRow);
-
-    // Humidity row (below trend arrow)
+    // Humidity (grid-column: 2, grid-row: 2)
     if (this._config.show_humidity !== false) {
       const humidity = this._getCurrentHumidity(entity);
       if (humidity !== null) {
-        const humidityRow = document.createElement('div');
-        humidityRow.className = 'humidity-row';
-
         const humiditySpan = document.createElement('span');
         humiditySpan.className = 'humidity';
 
@@ -1167,12 +1180,11 @@ class CompactBetterThermostatCard extends HTMLElement {
 
         humiditySpan.appendChild(humidityText);
         humiditySpan.appendChild(humidityIcon);
-        humidityRow.appendChild(humiditySpan);
-        section.appendChild(humidityRow);
+        section.appendChild(humiditySpan);
       }
     }
 
-    // Room name
+    // Room name (grid-column: 1/3, grid-row: 3)
     const roomName = document.createElement('div');
     roomName.className = 'room-name';
     roomName.textContent = this._config.name || entity.attributes.friendly_name || '';
